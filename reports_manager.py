@@ -8,7 +8,6 @@ import calendar
 class ReportsManager:
     def __init__(self):
         self.projects_file = "projects.json"
-        self.projects = self.load_projects()
         
     def load_projects(self):
         """پروژه‌ها رو از فایل می‌خونم"""
@@ -188,8 +187,9 @@ class ReportsManager:
             
             self.clear_results()
             found_projects = []
+            projects = self.load_projects()
             
-            for project in self.projects:
+            for project in projects:
                 if search_term in project.get('name', '').lower():
                     found_projects.append(project)
                     self.add_project_to_results(project)
@@ -236,7 +236,8 @@ class ReportsManager:
     
     def report_by_client(self, parent):
         """گزارش بر اساس نام شرکت/کارفرما"""
-        clients = list(set(project.get('client', '') for project in self.projects if project.get('client')))
+        projects = self.load_projects()
+        clients = list(set(project.get('client', '') for project in projects if project.get('client')))
         
         if not clients:
             messagebox.showinfo("اطلاع", "هیچ شرکت/کارفرمایی یافت نشد")
@@ -276,7 +277,7 @@ class ReportsManager:
             self.clear_results()
             found_projects = []
             
-            for project in self.projects:
+            for project in projects:
                 if project.get('client', '') == selected_client:
                     found_projects.append(project)
                     self.add_project_to_results(project)
@@ -359,7 +360,7 @@ class ReportsManager:
             self.clear_results()
             found_projects = []
             
-            for project in self.projects:
+            for project in projects:
                 try:
                     project_date = datetime.strptime(project.get('start_date', ''), '%Y-%m-%d')
                     if project_date == search_date:
@@ -446,7 +447,7 @@ class ReportsManager:
             self.clear_results()
             found_projects = []
             
-            for project in self.projects:
+            for project in projects:
                 try:
                     project_date = datetime.strptime(project.get('end_date', ''), '%Y-%m-%d')
                     if project_date == search_date:
@@ -544,7 +545,7 @@ class ReportsManager:
             self.clear_results()
             found_projects = []
             
-            for project in self.projects:
+            for project in projects:
                 try:
                     start_date = datetime.strptime(project.get('start_date', ''), '%Y-%m-%d')
                     end_date = datetime.strptime(project.get('end_date', ''), '%Y-%m-%d')
@@ -606,7 +607,8 @@ class ReportsManager:
         total_income = 0
         total_cost = 0
         
-        for project in self.projects:
+        projects = self.load_projects()
+        for project in projects:
             try:
                 end_date = datetime.strptime(project.get('end_date', ''), '%Y-%m-%d')
                 if week_start <= end_date <= week_end:
@@ -644,7 +646,8 @@ class ReportsManager:
         total_income = 0
         total_cost = 0
         
-        for project in self.projects:
+        projects = self.load_projects()
+        for project in projects:
             try:
                 end_date = datetime.strptime(project.get('end_date', ''), '%Y-%m-%d')
                 if month_start <= end_date <= month_end:
@@ -679,7 +682,8 @@ class ReportsManager:
         total_income = 0
         total_cost = 0
         
-        for project in self.projects:
+        projects = self.load_projects()
+        for project in projects:
             try:
                 end_date = datetime.strptime(project.get('end_date', ''), '%Y-%m-%d')
                 if year_start <= end_date <= year_end:

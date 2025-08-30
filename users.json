@@ -10,5 +10,9 @@
   "test": {
     "password": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92",
     "created_at": "2025-08-03T12:26:47.720310"
+  },
+  "alimz": {
+    "password": "e447a69f80bdf94ec7617c407f5cb4ab169312b05bdc8946e96f88645e0bc59e",
+    "created_at": "2025-08-30T17:24:45.655001"
   }
 }
