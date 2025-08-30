@@ -87,6 +87,10 @@ class ProjectManager:
         
         self.create_projects_table(table_frame)
         
+        # بارگذاری مجدد پروژه‌ها و شرکت‌ها از فایل
+        self.projects = self.load_projects()
+        self.companies = self.load_companies()
+        
         self.refresh_projects_table()
     
     def create_projects_table(self, parent):
@@ -142,6 +146,9 @@ class ProjectManager:
         """به‌روزرسانی جدول پروژه‌ها"""
         for item in self.tree.get_children():
             self.tree.delete(item)
+        
+        # بارگذاری مجدد پروژه‌ها از فایل
+        self.projects = self.load_projects()
         
         for project in self.projects:
             income = float(project.get('income', 0))
@@ -211,6 +218,8 @@ class ProjectManager:
         
         tk.Label(form_frame, text="کارفرما:", font=('Tahoma', 10), bg='#f0f0f0').pack(anchor=tk.W)
         client_combo = ttk.Combobox(form_frame, font=('Tahoma', 10), width=37)
+        # بارگذاری مجدد شرکت‌ها از فایل
+        self.companies = self.load_companies()
         client_combo['values'] = [company['name'] for company in self.companies]
         client_combo.pack(fill=tk.X, pady=(0, 15))
         
@@ -415,6 +424,8 @@ class ProjectManager:
             
             status_label.config(text="شرکت با موفقیت ثبت شد!", fg='#27ae60')
             form_window.after(2000, form_window.destroy)
+            # به‌روزرسانی جدول پروژه‌ها برای نمایش شرکت‌های جدید
+            self.refresh_projects_table()
         
         button_frame = tk.Frame(form_frame, bg='#f0f0f0')
         button_frame.pack(fill=tk.X)
@@ -457,6 +468,9 @@ class ProjectManager:
         item = self.tree.item(selection[0])
         project_name = item['values'][0]
         
+        # بارگذاری مجدد پروژه‌ها از فایل
+        self.projects = self.load_projects()
+        
         project = None
         for p in self.projects:
             if p['name'] == project_name:
@@ -467,7 +481,7 @@ class ProjectManager:
             messagebox.showerror("خطا", "پروژه یافت نشد")
             return
         
-        self.show_add_project_form(parent)
+        self.show_edit_project_window(parent, project)
     
     def delete_project(self, parent):
         """حذف پروژه"""
@@ -480,6 +494,8 @@ class ProjectManager:
         project_name = item['values'][0]
         
         if messagebox.askyesno("تأیید", f"آیا مطمئن هستید که می‌خواهید پروژه '{project_name}' را حذف کنید؟"):
+            # بارگذاری مجدد پروژه‌ها از فایل
+            self.projects = self.load_projects()
             self.projects = [p for p in self.projects if p['name'] != project_name]
             self.save_projects()
             self.refresh_projects_table()
@@ -487,6 +503,9 @@ class ProjectManager:
     
     def show_project_details(self, project_name):
         """نمایش جزئیات پروژه"""
+        # بارگذاری مجدد پروژه‌ها از فایل
+        self.projects = self.load_projects()
+        
         project = None
         for p in self.projects:
             if p['name'] == project_name:
@@ -558,4 +577,173 @@ class ProjectManager:
         desc_text.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
         desc_text.config(state=tk.NORMAL)
         desc_text.insert("1.0", project.get('description', ''))
-        desc_text.config(state=tk.DISABLED) 
+        desc_text.config(state=tk.DISABLED)
+    
+    def show_edit_project_window(self, parent, project):
+        """نمایش فرم ویرایش پروژه با اطلاعات پر شده"""
+        form_window = tk.Toplevel(parent)
+        form_window.title("ویرایش پروژه")
+        form_window.geometry("600x700")
+        form_window.configure(bg='#f0f0f0')
+        form_window.transient(parent)
+        form_window.grab_set()
+        
+        form_window.geometry("+%d+%d" % (
+            parent.winfo_rootx() + 50,
+            parent.winfo_rooty() + 50
+        ))
+        
+        main_frame = tk.Frame(form_window, bg='#f0f0f0')
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        
+        title_label = tk.Label(
+            main_frame,
+            text="ویرایش پروژه",
+            font=('Tahoma', 16, 'bold'),
+            bg='#f0f0f0',
+            fg='#2c3e50'
+        )
+        title_label.pack(pady=(0, 20))
+        
+        form_frame = tk.Frame(main_frame, bg='#f0f0f0')
+        form_frame.pack(fill=tk.BOTH, expand=True)
+        
+        tk.Label(form_frame, text="نام پروژه:", font=('Tahoma', 10), bg='#f0f0f0').pack(anchor=tk.W)
+        name_entry = tk.Entry(form_frame, font=('Tahoma', 10), width=40)
+        name_entry.pack(fill=tk.X, pady=(0, 15))
+        name_entry.insert(0, project.get('name', ''))
+        
+        tk.Label(form_frame, text="کارفرما:", font=('Tahoma', 10), bg='#f0f0f0').pack(anchor=tk.W)
+        client_combo = ttk.Combobox(form_frame, font=('Tahoma', 10), width=37)
+        # بارگذاری مجدد شرکت‌ها از فایل
+        self.companies = self.load_companies()
+        client_combo['values'] = [company['name'] for company in self.companies]
+        client_combo.pack(fill=tk.X, pady=(0, 15))
+        client_combo.set(project.get('client', ''))
+        
+        date_frame = tk.Frame(form_frame, bg='#f0f0f0')
+        date_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        start_frame = tk.Frame(date_frame, bg='#f0f0f0')
+        start_frame.pack(side=tk.LEFT, padx=(0, 20))
+        tk.Label(start_frame, text="تاریخ شروع:", font=('Tahoma', 10), bg='#f0f0f0').pack(anchor=tk.W)
+        start_date_entry = tk.Entry(start_frame, font=('Tahoma', 10), width=15)
+        start_date_entry.pack()
+        start_date_entry.insert(0, project.get('start_date', ''))
+        
+        end_frame = tk.Frame(date_frame, bg='#f0f0f0')
+        end_frame.pack(side=tk.LEFT)
+        tk.Label(end_frame, text="تاریخ پایان:", font=('Tahoma', 10), bg='#f0f0f0').pack(anchor=tk.W)
+        end_date_entry = tk.Entry(end_frame, font=('Tahoma', 10), width=15)
+        end_date_entry.pack()
+        end_date_entry.insert(0, project.get('end_date', ''))
+        
+        financial_frame = tk.Frame(form_frame, bg='#f0f0f0')
+        financial_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        income_frame = tk.Frame(financial_frame, bg='#f0f0f0')
+        income_frame.pack(side=tk.LEFT, padx=(0, 20))
+        tk.Label(income_frame, text="درآمد:", font=('Tahoma', 10), bg='#f0f0f0').pack(anchor=tk.W)
+        income_entry = tk.Entry(income_frame, font=('Tahoma', 10), width=15)
+        income_entry.pack()
+        income_entry.insert(0, str(project.get('income', 0)))
+        
+        cost_frame = tk.Frame(financial_frame, bg='#f0f0f0')
+        cost_frame.pack(side=tk.LEFT)
+        tk.Label(cost_frame, text="هزینه:", font=('Tahoma', 10), bg='#f0f0f0').pack(anchor=tk.W)
+        cost_entry = tk.Entry(cost_frame, font=('Tahoma', 10), width=15)
+        cost_entry.pack()
+        cost_entry.insert(0, str(project.get('cost', 0)))
+        
+        tk.Label(form_frame, text="اعضای تیم (جدا شده با کاما):", font=('Tahoma', 10), bg='#f0f0f0').pack(anchor=tk.W)
+        team_entry = tk.Entry(form_frame, font=('Tahoma', 10), width=40)
+        team_entry.pack(fill=tk.X, pady=(0, 15))
+        team_entry.insert(0, project.get('team', ''))
+        
+        tk.Label(form_frame, text="شرح پروژه:", font=('Tahoma', 10), bg='#f0f0f0').pack(anchor=tk.W)
+        description_text = tk.Text(form_frame, font=('Tahoma', 10), height=8, wrap=tk.WORD)
+        description_text.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
+        description_text.insert("1.0", project.get('description', ''))
+        
+        status_label = tk.Label(
+            form_frame,
+            text="",
+            font=('Tahoma', 9),
+            bg='#f0f0f0',
+            fg='#e74c3c'
+        )
+        status_label.pack(pady=(0, 15))
+        
+        def save_project():
+            name = name_entry.get().strip()
+            client = client_combo.get().strip()
+            start_date = start_date_entry.get().strip()
+            end_date = end_date_entry.get().strip()
+            income = income_entry.get().strip()
+            cost = cost_entry.get().strip()
+            team = team_entry.get().strip()
+            description = description_text.get("1.0", tk.END).strip()
+            
+            if not all([name, client, start_date, end_date]):
+                status_label.config(text="لطفاً فیلدهای اجباری را پر کنید")
+                return
+            
+            try:
+                income = float(income)
+                cost = float(cost)
+            except ValueError:
+                status_label.config(text="مقادیر مالی باید عددی باشند")
+                return
+            
+            # بررسی تکراری نبودن نام (به جز خود پروژه)
+            if any(p['name'] == name and p['name'] != project['name'] for p in self.projects):
+                status_label.config(text="پروژه‌ای با این نام قبلاً ثبت شده است")
+                return
+            
+            # به‌روزرسانی پروژه
+            project['name'] = name
+            project['client'] = client
+            project['start_date'] = start_date
+            project['end_date'] = end_date
+            project['income'] = income
+            project['cost'] = cost
+            project['team'] = team
+            project['description'] = description
+            project['updated_at'] = datetime.now().isoformat()
+            
+            self.save_projects()
+            
+            status_label.config(text="پروژه با موفقیت به‌روزرسانی شد!", fg='#27ae60')
+            form_window.after(2000, form_window.destroy)
+            self.refresh_projects_table()
+        
+        button_frame = tk.Frame(form_frame, bg='#f0f0f0')
+        button_frame.pack(fill=tk.X)
+        
+        save_btn = tk.Button(
+            button_frame,
+            text="ذخیره تغییرات",
+            command=save_project,
+            font=('Tahoma', 10, 'bold'),
+            bg='#2ecc71',
+            fg='white',
+            relief=tk.RAISED,
+            bd=2,
+            width=15,
+            cursor='hand2'
+        )
+        save_btn.pack(side=tk.LEFT, padx=(0, 10))
+        
+        cancel_btn = tk.Button(
+            button_frame,
+            text="لغو",
+            command=form_window.destroy,
+            font=('Tahoma', 10),
+            bg='#95a5a6',
+            fg='white',
+            relief=tk.RAISED,
+            bd=2,
+            width=15,
+            cursor='hand2'
+        )
+        cancel_btn.pack(side=tk.LEFT) 

@@ -37,11 +37,14 @@ class ReportsManager:
         button_frame.pack(fill=tk.X, pady=(0, 20))
         
         reports_data = [
+            ("نمایش همه پروژه‌ها", self.show_all_projects, '#27ae60'),
             ("گزارش بر اساس نام پروژه", self.report_by_project_name, '#3498db'),
             ("گزارش بر اساس نام شرکت/کارفرما", self.report_by_client, '#2ecc71'),
             ("گزارش بر اساس تاریخ شروع", self.report_by_start_date, '#f39c12'),
             ("گزارش بر اساس تاریخ پایان", self.report_by_end_date, '#e74c3c'),
             ("گزارش پروژه‌های یک ماه خاص", self.report_by_month, '#9b59b6'),
+            ("گزارش بر اساس وضعیت", self.report_by_status, '#8e44ad'),
+            ("جستجوی پیشرفته", self.advanced_search, '#16a085'),
             ("گزارش مالی هفتگی", self.financial_report_weekly, '#1abc9c'),
             ("گزارش مالی ماهانه", self.financial_report_monthly, '#34495e'),
             ("گزارش مالی سالانه", self.financial_report_yearly, '#e67e22')
@@ -110,14 +113,30 @@ class ReportsManager:
         self.results_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
+        bottom_frame = tk.Frame(results_frame, bg='#ecf0f1')
+        bottom_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
+        
         self.count_label = tk.Label(
-            results_frame,
+            bottom_frame,
             text="تعداد نتایج: 0",
             font=('Tahoma', 10),
             bg='#ecf0f1',
             fg='#2c3e50'
         )
-        self.count_label.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
+        self.count_label.pack(side=tk.LEFT, padx=10)
+        
+        save_btn = tk.Button(
+            bottom_frame,
+            text="ذخیره گزارش",
+            command=self.save_report_to_file,
+            font=('Tahoma', 9, 'bold'),
+            bg='#3498db',
+            fg='white',
+            relief=tk.RAISED,
+            bd=1,
+            cursor='hand2'
+        )
+        save_btn.pack(side=tk.RIGHT, padx=10)
     
     def clear_results(self):
         """پاک کردن نتایج قبلی"""
@@ -155,6 +174,377 @@ class ReportsManager:
         """به‌روزرسانی برچسب تعداد نتایج"""
         count = len(self.results_tree.get_children())
         self.count_label.config(text=f"تعداد نتایج: {count}")
+    
+    def show_all_projects(self, parent):
+        """نمایش همه پروژه‌ها"""
+        self.clear_results()
+        projects = self.load_projects()
+        
+        if not projects:
+            messagebox.showinfo("اطلاع", "هیچ پروژه‌ای یافت نشد")
+            return
+        
+        for project in projects:
+            self.add_project_to_results(project)
+        
+        self.update_count_label()
+        messagebox.showinfo("اطلاع", f"تمام {len(projects)} پروژه نمایش داده شدند")
+    
+    def save_report_to_file(self):
+        """ذخیره گزارش در فایل"""
+        items = self.results_tree.get_children()
+        if not items:
+            messagebox.showwarning("هشدار", "هیچ نتیجه‌ای برای ذخیره وجود ندارد")
+            return
+        
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".txt",
+            filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
+            title="ذخیره گزارش"
+        )
+        
+        if not file_path:
+            return
+        
+        try:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write("گزارش پروژه‌ها\n")
+                f.write("=" * 50 + "\n\n")
+                f.write(f"تاریخ گزارش: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"تعداد نتایج: {len(items)}\n\n")
+                
+                f.write("نام پروژه\tکارفرما\tتاریخ شروع\tتاریخ پایان\tدرآمد\tهزینه\tسود خالص\tوضعیت\n")
+                f.write("-" * 100 + "\n")
+                
+                for item in items:
+                    values = self.results_tree.item(item)['values']
+                    f.write("\t".join(str(v) for v in values) + "\n")
+                
+                # محاسبه خلاصه مالی
+                total_income = 0
+                total_cost = 0
+                for item in items:
+                    values = self.results_tree.item(item)['values']
+                    income_str = values[4].replace(',', '')
+                    cost_str = values[5].replace(',', '')
+                    try:
+                        total_income += float(income_str)
+                        total_cost += float(cost_str)
+                    except:
+                        pass
+                
+                total_profit = total_income - total_cost
+                
+                f.write("\n" + "=" * 50 + "\n")
+                f.write("خلاصه مالی:\n")
+                f.write(f"کل درآمد: {total_income:,} تومان\n")
+                f.write(f"کل هزینه: {total_cost:,} تومان\n")
+                f.write(f"سود خالص: {total_profit:,} تومان\n")
+            
+            messagebox.showinfo("موفقیت", f"گزارش با موفقیت در فایل ذخیره شد:\n{file_path}")
+            
+        except Exception as e:
+            messagebox.showerror("خطا", f"خطا در ذخیره فایل:\n{str(e)}")
+    
+    def report_by_status(self, parent):
+        """گزارش بر اساس وضعیت پروژه"""
+        status_window = tk.Toplevel(parent)
+        status_window.title("گزارش بر اساس وضعیت")
+        status_window.geometry("400x250")
+        status_window.configure(bg='#f0f0f0')
+        status_window.transient(parent)
+        status_window.grab_set()
+        
+        main_frame = tk.Frame(status_window, bg='#f0f0f0')
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        
+        tk.Label(
+            main_frame,
+            text="وضعیت پروژه را انتخاب کنید:",
+            font=('Tahoma', 10),
+            bg='#f0f0f0'
+        ).pack(anchor=tk.W, pady=(0, 10))
+        
+        status_var = tk.StringVar()
+        status_var.set("در حال اجرا")
+        
+        status_frame = tk.Frame(main_frame, bg='#f0f0f0')
+        status_frame.pack(fill=tk.X, pady=(0, 20))
+        
+        tk.Radiobutton(
+            status_frame,
+            text="در حال اجرا",
+            variable=status_var,
+            value="در حال اجرا",
+            font=('Tahoma', 10),
+            bg='#f0f0f0'
+        ).pack(anchor=tk.W, pady=2)
+        
+        tk.Radiobutton(
+            status_frame,
+            text="پایان یافته",
+            variable=status_var,
+            value="پایان یافته",
+            font=('Tahoma', 10),
+            bg='#f0f0f0'
+        ).pack(anchor=tk.W, pady=2)
+        
+        tk.Radiobutton(
+            status_frame,
+            text="امروز",
+            variable=status_var,
+            value="امروز",
+            font=('Tahoma', 10),
+            bg='#f0f0f0'
+        ).pack(anchor=tk.W, pady=2)
+        
+        def search():
+            selected_status = status_var.get()
+            
+            self.clear_results()
+            found_projects = []
+            projects = self.load_projects()
+            
+            for project in projects:
+                try:
+                    end_date = datetime.strptime(project.get('end_date', ''), '%Y-%m-%d')
+                    today = datetime.now()
+                    
+                    if end_date < today:
+                        status = "پایان یافته"
+                    elif end_date == today:
+                        status = "امروز"
+                    else:
+                        status = "در حال اجرا"
+                    
+                    if status == selected_status:
+                        found_projects.append(project)
+                        self.add_project_to_results(project)
+                except:
+                    continue
+            
+            self.update_count_label()
+            status_window.destroy()
+            
+            if not found_projects:
+                messagebox.showinfo("اطلاع", f"پروژه‌ای با وضعیت '{selected_status}' یافت نشد")
+            else:
+                messagebox.showinfo("اطلاع", f"{len(found_projects)} پروژه با وضعیت '{selected_status}' یافت شد")
+        
+        button_frame = tk.Frame(main_frame, bg='#f0f0f0')
+        button_frame.pack(fill=tk.X)
+        
+        search_btn = tk.Button(
+            button_frame,
+            text="جستجو",
+            command=search,
+            font=('Tahoma', 10, 'bold'),
+            bg='#8e44ad',
+            fg='white',
+            relief=tk.RAISED,
+            bd=2,
+            width=15,
+            cursor='hand2'
+        )
+        search_btn.pack(side=tk.LEFT, padx=(0, 10))
+        
+        cancel_btn = tk.Button(
+            button_frame,
+            text="لغو",
+            command=status_window.destroy,
+            font=('Tahoma', 10),
+            bg='#95a5a6',
+            fg='white',
+            relief=tk.RAISED,
+            bd=2,
+            width=15,
+            cursor='hand2'
+        )
+        cancel_btn.pack(side=tk.LEFT)
+        
+        status_window.bind('<Return>', lambda e: search())
+        status_window.bind('<Escape>', lambda e: status_window.destroy())
+    
+    def advanced_search(self, parent):
+        """جستجوی پیشرفته با چندین معیار"""
+        search_window = tk.Toplevel(parent)
+        search_window.title("جستجوی پیشرفته")
+        search_window.geometry("500x600")
+        search_window.configure(bg='#f0f0f0')
+        search_window.transient(parent)
+        search_window.grab_set()
+        
+        main_frame = tk.Frame(search_window, bg='#f0f0f0')
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        
+        title_label = tk.Label(
+            main_frame,
+            text="جستجوی پیشرفته",
+            font=('Tahoma', 14, 'bold'),
+            bg='#f0f0f0',
+            fg='#2c3e50'
+        )
+        title_label.pack(pady=(0, 20))
+        
+        # نام پروژه
+        tk.Label(main_frame, text="نام پروژه (اختیاری):", font=('Tahoma', 10), bg='#f0f0f0').pack(anchor=tk.W)
+        name_entry = tk.Entry(main_frame, font=('Tahoma', 10), width=40)
+        name_entry.pack(fill=tk.X, pady=(0, 15))
+        
+        # کارفرما
+        tk.Label(main_frame, text="کارفرما (اختیاری):", font=('Tahoma', 10), bg='#f0f0f0').pack(anchor=tk.W)
+        client_entry = tk.Entry(main_frame, font=('Tahoma', 10), width=40)
+        client_entry.pack(fill=tk.X, pady=(0, 15))
+        
+        # بازه درآمد
+        tk.Label(main_frame, text="بازه درآمد (اختیاری):", font=('Tahoma', 10), bg='#f0f0f0').pack(anchor=tk.W)
+        income_frame = tk.Frame(main_frame, bg='#f0f0f0')
+        income_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        tk.Label(income_frame, text="از:", font=('Tahoma', 9), bg='#f0f0f0').pack(side=tk.LEFT)
+        min_income_entry = tk.Entry(income_frame, font=('Tahoma', 9), width=15)
+        min_income_entry.pack(side=tk.LEFT, padx=(5, 10))
+        
+        tk.Label(income_frame, text="تا:", font=('Tahoma', 9), bg='#f0f0f0').pack(side=tk.LEFT)
+        max_income_entry = tk.Entry(income_frame, font=('Tahoma', 9), width=15)
+        max_income_entry.pack(side=tk.LEFT, padx=(5, 0))
+        
+        # بازه تاریخ
+        tk.Label(main_frame, text="بازه تاریخ شروع (اختیاری):", font=('Tahoma', 10), bg='#f0f0f0').pack(anchor=tk.W)
+        date_frame = tk.Frame(main_frame, bg='#f0f0f0')
+        date_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        tk.Label(date_frame, text="از:", font=('Tahoma', 9), bg='#f0f0f0').pack(side=tk.LEFT)
+        start_date_from = tk.Entry(date_frame, font=('Tahoma', 9), width=12)
+        start_date_from.pack(side=tk.LEFT, padx=(5, 10))
+        start_date_from.insert(0, "YYYY-MM-DD")
+        
+        tk.Label(date_frame, text="تا:", font=('Tahoma', 9), bg='#f0f0f0').pack(side=tk.LEFT)
+        start_date_to = tk.Entry(date_frame, font=('Tahoma', 9), width=12)
+        start_date_to.pack(side=tk.LEFT, padx=(5, 0))
+        start_date_to.insert(0, "YYYY-MM-DD")
+        
+        # وضعیت
+        tk.Label(main_frame, text="وضعیت (اختیاری):", font=('Tahoma', 10), bg='#f0f0f0').pack(anchor=tk.W)
+        status_var = tk.StringVar()
+        status_var.set("همه")
+        
+        status_frame = tk.Frame(main_frame, bg='#f0f0f0')
+        status_frame.pack(fill=tk.X, pady=(0, 20))
+        
+        tk.Radiobutton(status_frame, text="همه", variable=status_var, value="همه", font=('Tahoma', 9), bg='#f0f0f0').pack(side=tk.LEFT, padx=(0, 10))
+        tk.Radiobutton(status_frame, text="در حال اجرا", variable=status_var, value="در حال اجرا", font=('Tahoma', 9), bg='#f0f0f0').pack(side=tk.LEFT, padx=(0, 10))
+        tk.Radiobutton(status_frame, text="پایان یافته", variable=status_var, value="پایان یافته", font=('Tahoma', 9), bg='#f0f0f0').pack(side=tk.LEFT, padx=(0, 10))
+        tk.Radiobutton(status_frame, text="امروز", variable=status_var, value="امروز", font=('Tahoma', 9), bg='#f0f0f0').pack(side=tk.LEFT)
+        
+        def search():
+            name_filter = name_entry.get().strip().lower()
+            client_filter = client_entry.get().strip().lower()
+            min_income = min_income_entry.get().strip()
+            max_income = max_income_entry.get().strip()
+            start_from = start_date_from.get().strip()
+            start_to = start_date_to.get().strip()
+            status_filter = status_var.get()
+            
+            self.clear_results()
+            found_projects = []
+            projects = self.load_projects()
+            
+            for project in projects:
+                # فیلتر نام
+                if name_filter and name_filter not in project.get('name', '').lower():
+                    continue
+                
+                # فیلتر کارفرما
+                if client_filter and client_filter not in project.get('client', '').lower():
+                    continue
+                
+                # فیلتر درآمد
+                try:
+                    income = float(project.get('income', 0))
+                    if min_income and income < float(min_income):
+                        continue
+                    if max_income and income > float(max_income):
+                        continue
+                except:
+                    pass
+                
+                # فیلتر تاریخ شروع
+                try:
+                    start_date = datetime.strptime(project.get('start_date', ''), '%Y-%m-%d')
+                    if start_from and start_from != "YYYY-MM-DD":
+                        start_from_date = datetime.strptime(start_from, '%Y-%m-%d')
+                        if start_date < start_from_date:
+                            continue
+                    if start_to and start_to != "YYYY-MM-DD":
+                        start_to_date = datetime.strptime(start_to, '%Y-%m-%d')
+                        if start_date > start_to_date:
+                            continue
+                except:
+                    pass
+                
+                # فیلتر وضعیت
+                if status_filter != "همه":
+                    try:
+                        end_date = datetime.strptime(project.get('end_date', ''), '%Y-%m-%d')
+                        today = datetime.now()
+                        
+                        if end_date < today:
+                            status = "پایان یافته"
+                        elif end_date == today:
+                            status = "امروز"
+                        else:
+                            status = "در حال اجرا"
+                        
+                        if status != status_filter:
+                            continue
+                    except:
+                        pass
+                
+                found_projects.append(project)
+                self.add_project_to_results(project)
+            
+            self.update_count_label()
+            search_window.destroy()
+            
+            if not found_projects:
+                messagebox.showinfo("اطلاع", "هیچ پروژه‌ای با معیارهای انتخاب شده یافت نشد")
+            else:
+                messagebox.showinfo("اطلاع", f"{len(found_projects)} پروژه با معیارهای انتخاب شده یافت شد")
+        
+        button_frame = tk.Frame(main_frame, bg='#f0f0f0')
+        button_frame.pack(fill=tk.X)
+        
+        search_btn = tk.Button(
+            button_frame,
+            text="جستجو",
+            command=search,
+            font=('Tahoma', 10, 'bold'),
+            bg='#16a085',
+            fg='white',
+            relief=tk.RAISED,
+            bd=2,
+            width=15,
+            cursor='hand2'
+        )
+        search_btn.pack(side=tk.LEFT, padx=(0, 10))
+        
+        cancel_btn = tk.Button(
+            button_frame,
+            text="لغو",
+            command=search_window.destroy,
+            font=('Tahoma', 10),
+            bg='#95a5a6',
+            fg='white',
+            relief=tk.RAISED,
+            bd=2,
+            width=15,
+            cursor='hand2'
+        )
+        cancel_btn.pack(side=tk.LEFT)
+        
+        search_window.bind('<Return>', lambda e: search())
+        search_window.bind('<Escape>', lambda e: search_window.destroy())
     
     def report_by_project_name(self, parent):
         """گزارش بر اساس نام پروژه"""
@@ -359,6 +749,7 @@ class ReportsManager:
             
             self.clear_results()
             found_projects = []
+            projects = self.load_projects()
             
             for project in projects:
                 try:
@@ -446,6 +837,7 @@ class ReportsManager:
             
             self.clear_results()
             found_projects = []
+            projects = self.load_projects()
             
             for project in projects:
                 try:
@@ -544,13 +936,16 @@ class ReportsManager:
             
             self.clear_results()
             found_projects = []
+            projects = self.load_projects()
             
             for project in projects:
                 try:
                     start_date = datetime.strptime(project.get('start_date', ''), '%Y-%m-%d')
                     end_date = datetime.strptime(project.get('end_date', ''), '%Y-%m-%d')
                     
-                    if start_date.year == year and start_date.month == month:
+                    # پروژه‌هایی که در این ماه شروع شده‌اند یا در این ماه پایان یافته‌اند
+                    if (start_date.year == year and start_date.month == month) or \
+                       (end_date.year == year and end_date.month == month):
                         found_projects.append(project)
                         self.add_project_to_results(project)
                 except:
